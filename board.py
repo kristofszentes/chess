@@ -40,8 +40,23 @@ class Board():
         self.board[7][6] = Knight((7, 6), True, self)
         self.board[7][7] = Rook((7, 7), True, self)
 
-    def white_is_checked(self):
+    #returns the coords of a king, color can be 'white' or 'black'
+    def get_king_coord(self, color):
+        col = True if color == 'white' else False
         for i in range(8):
             for j in range(8):
-                if 
+                piece = self.board[i][j]
+                if piece!= None and piece.white == col and isinstance(piece,King):
+                    return (i,j)
+
+    #tells if a player is checked, color can be 'white' or 'black'
+    def is_checked(self, color):
+        col = True if color == 'white' else False
+        k_coord = self.get_king_coord(color)
+        for i in range(8):
+            for j in range(8):
+                piece = self.board[i][j]
+                if piece != None:
+                    if piece.white != col and k_coord in piece.can_move_to():
+                        return True
         return False

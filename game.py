@@ -23,6 +23,9 @@ class Game():
         self.size = window_size
         self.screen = None
         self.white = white
+        self.playerColor = 'white' if self.white else 'black'
+        self.isWhiteChecked = False
+        self.isBlackChecked = False
         self.board = Board()
         self.selected = None
         self.marked = []
@@ -114,13 +117,22 @@ class Game():
                         board_x, board_y = self.black_to_board_coord(x, y)
 
                     piece = self.board.board[board_x][board_y]
+
+                    #Checking if someone is checked
+                    if not self.isWhiteChecked and self.board.is_checked('white'):
+                        self.isWhiteChecked = True
+                        print('white checked here')
+                        
+                    if not self.isBlackChecked and self.board.is_checked('black'):
+                        self.isBlackChecked = True
+                        print('black checked')
                     
                     #We check if the selected square has a piece and if the piece is of the player's color
                     if piece is not None and piece.white == self.white:
                         self.marked = []
                         self.selected = self.board.board[board_x][board_y]
                         self.marked.extend(self.selected.can_move_to())
-                        self.marked = [move for move in self.marked if type(self.board.board[move[0]][move[1]]).__name__ != 'King']
+                        self.marked = [move for move in self.marked if (self.board.board[move[0]][move[1]]).__name__ != 'King']
                         print(self.marked)
 
                     #Moving
@@ -146,5 +158,5 @@ class Game():
         return 7 - new_y, 7 - new_x
         
 if __name__ == "__main__":
-    game = Game(SIZE, False)
+    game = Game(SIZE, True)
     game.run()
