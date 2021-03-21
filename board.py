@@ -40,6 +40,24 @@ class Board():
         self.board[7][6] = Knight((7, 6), True, self)
         self.board[7][7] = Rook((7, 7), True, self)
 
+    def get_black_pieces(self):
+        pieces = []
+        for i in range(8):
+            for j in range(8):
+                piece = self.board[i][j]
+                if piece != None and not piece.white:
+                    pieces.append(piece)
+        return pieces
+
+    def get_white_pieces(self):
+        pieces = []
+        for i in range(8):
+            for j in range(8):
+                piece = self.board[i][j]
+                if piece != None and piece.white:
+                    pieces.append(piece)
+        return pieces
+
     #returns the coords of a king, color can be 'white' or 'black'
     def get_king_coord(self, color):
         col = True if color == 'white' else False
@@ -56,7 +74,18 @@ class Board():
         for i in range(8):
             for j in range(8):
                 piece = self.board[i][j]
-                if piece != None:
-                    if piece.white != col and k_coord in piece.can_move_to():
+                if piece != None and piece.white != col:
+                    print(type(piece).__name__, piece.can_move_to())
+                    if k_coord in piece.can_move_to():
+                        return True
+                    elif isinstance(piece, Pawn) and k_coord in piece.is_attacking():
                         return True
         return False
+
+    def copy(self):
+        new_board = Board()
+        for i in range(8):
+            for j in range(8):
+                new_board.board[i][j] = self.board[i][j]
+
+        return new_board

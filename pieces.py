@@ -60,6 +60,16 @@ class Pawn(Piece):
                     att_moves.append((self.line + 1, self.column + 1))
 
         return [move for move in moves if self.board.board[move[0]][move[1]] is None] + att_moves
+
+    def is_attacking(self):
+        att_moves = []
+        test = [-1,1]
+        for x in test:
+            for y in test:
+                if self.is_on_board(self.line + x, self.column + y):
+                    att_moves.append((self.line + x, self.column + y))
+        return att_moves
+
 class Knight(Piece):
 
     def __init__(self, position, white, board):
@@ -75,6 +85,12 @@ class Knight(Piece):
         self.surface = pygame.transform.scale(self.surface, (80,80))
 
     def can_move_to(self):
+
+        poss_moves = self.is_attacking()
+
+        return [move for move in poss_moves if self.board.board[move[0]][move[1]] is None or self.board.board[move[0]][move[1]].white != self.white]
+
+    def is_attacking(self):
         moves = []
 
         for i in [1, -1]:
@@ -84,9 +100,7 @@ class Knight(Piece):
             moves.append((self.line + i, self.column + 2))
             moves.append((self.line + i, self.column - 2))
 
-        poss_moves = [move for move in moves if move[0] in range(8) and move[1] in range(8)]
-
-        return [move for move in poss_moves if self.board.board[move[0]][move[1]] is None or self.board.board[move[0]][move[1]].white != self.white]
+        return [move for move in moves if self.is_on_board(move[0],move[1])]
 
 class Bishop(Piece):
 
@@ -155,8 +169,20 @@ class King(Piece):
             if self.is_on_board(self.line + i, self.column - i):
                 moves.append((self.line + i, self.column - i))
 
-        #TODO: add the fact that the king cant move in check position
-        return [move for move in moves if self.board.board[move[0]][move[1]] is None or self.board.board[move[0]][move[1]].white != self.white]
+        #Taking out occupied positions
+        moves = [move for move in moves if self.board.board[move[0]][move[1]] is None or self.board.board[move[0]][move[1]].white != self.white]
+        
+        #Taking out the moves in which he is checked
+        '''poss_moves = []
+        col = 'white' if self.white else 'black'
+        for move in moves:
+            new_board = self.board.copy()
+            new_board.board[self.line][self.column] = None
+            new_board.board[move[0]][move[1]] = self
+
+            if not new_board.is_checked(col):
+                poss_moves.append(move)'''
+        return moves
 
 class Rook(Piece):
 
