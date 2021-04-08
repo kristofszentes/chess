@@ -1,5 +1,9 @@
 import pygame
+import socket, select, pickle
 from board import Board
+from pieces import King
+from network import Network
+from _thread import *
 
 pygame.init()
 
@@ -16,13 +20,17 @@ RED = (255, 0, 0)
 #Defining the font
 FONT = pygame.font.SysFont("monospace",20,True)
 
+#Network options:
+IP = "localhost"
+PORT = 50000
 
 class Game():
 
-    def __init__(self, window_size, white):
+    def __init__(self, window_size):
+        self.network = Network(IP, PORT)
         self.size = window_size
         self.screen = None
-        self.white = white
+        self.white = True if self.network.id == 'True' else False
         self.playerColor = 'white' if self.white else 'black'
         self.isWhiteChecked = False
         self.isBlackChecked = False
@@ -31,8 +39,8 @@ class Game():
         self.board = Board()
         self.selected = None
         self.marked = []
-        
         self.board.init_game()
+        self.your_turn = self.white
 
     def update_screen(self):
         
@@ -56,7 +64,7 @@ class Game():
         #Drawing the places where you can move
         if self.white:
             for square in self.marked:
-                pygame.draw.rect(self.screen, RED, (30 + 80*square[1], 30 + 80*square[0], 30, 30))
+                pygame.draw.rect(self.screen, RED, (55 + 80*square[1], 55 + 80*square[0], 30, 30))
         else:
             for square in self.marked:
                 pygame.draw.rect(self.screen, RED, (590 - 80*square[1], 590 - 80*square[0], 30, 30))
@@ -77,9 +85,10 @@ class Game():
         numbers = list(range(1,9))
         letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
-        if not self.white:
-            letters.reverse()
+        if self.white:
             numbers.reverse()
+        else:
+            letters.reverse()
         
         for i in range(8):
             #letters
@@ -96,6 +105,10 @@ class Game():
 
         cont = True
 
+        if not self.your_turn:
+            start_new_thread(self.wait_for_move,())
+            print('thread started')
+
         while cont:
             pygame.time.delay(2)
 
@@ -105,7 +118,7 @@ class Game():
                 if event.type == pygame.QUIT:
                     cont = False
 
-            if not self.isBlackMated and not self.isWhiteMated:
+            if self.your_turn and not self.isBlackMated and not self.isWhiteMated:
                 #Checking mouse input
                 if pygame.mouse.get_pressed()[0]:
                     
@@ -129,15 +142,32 @@ class Game():
 
                         #Moving
                         elif (board_x, board_y) in self.marked:
+                            move_to_send = ((self.selected.line,self.selected.column), (board_x, board_y))
                             self.selected.move(board_x, board_y)
+                            #When rocking, we also need to move the rook
+                            if isinstance(self.selected, King) and not self.selected.hasMoved and board_y in [2,6]:
+                                if board_y == 6:
+                                    rook = self.board.board[self.selected.line][7]
+                                    rook.move(self.selected.line, 5)
+                                    rook.hasMoved = True
+                                else:
+                                    rook = self.board.board[self.selected.line][0]
+                                    rook.move(self.selected.line,3)
+                                    rook.hasMoved = True
                             
                             if type(self.selected).__name__ in ['Pawn', 'Rook', 'King']:
                                 self.selected.hasMoved = True
 
+                            self.board.check_pawn_to_queen()
                             self.updating_checked()
+
+                            #sending data to network
+                            self.network.send(move_to_send)
 
                             self.selected = None
                             self.marked = []
+                            self.your_turn = False
+                            start_new_thread(self.wait_for_move,())
 
             self.update_screen()
 
@@ -152,43 +182,40 @@ class Game():
             print('white no more checked')
         
         if self.isWhiteChecked:
-            self.is_check_mated('white')
+            self.upda('white')
                         
-        if not self.isBlackChecked and self.board.is_checked('black'):
+        if self.board.is_checked('black'):
             self.isBlackChecked = True
             print('black checked')
-            self.updating_check_mate('black')
 
         elif self.isBlackChecked and not self.board.is_checked('black'):
             self.isBlackChecked = False
             print('black no more checked')
 
-        if self.isWhiteChecked:
-            self.is_check_mated('black')
+        if self.isBlackChecked:
+            self.updating_check_mate('black')
 
     def is_check_mated(self, col):
         white = True if col == 'white' else False
         ally_pieces = self.board.get_white_pieces() if white else self.board.get_black_pieces()
         for piece in ally_pieces:
             moves = piece.can_move_to()
-            print(piece, moves)
             for move in moves:
                 new_board = self.board.copy()
                 new_board.board[piece.line][piece.column] = None
                 new_board.board[move[0]][move[1]] = piece
 
                 if not new_board.is_checked(col):
-                    print(move)
                     return False
         return True
 
     def updating_check_mate(self, col):
         if self.is_check_mated(col):
             if col == 'white':
-                print('white is mated')
+                print('Black won')
                 self.isWhiteMated = True
             else:
-                print('black is mated')
+                print('White won')
                 self.isBlackMated = True
 
     def white_to_board_coord(self, x ,y):
@@ -200,7 +227,27 @@ class Game():
         new_x = (x-30) // 80
         new_y = (y-30) // 80
         return 7 - new_y, 7 - new_x
+
+    def applying_received_move(self, move):
+        piece = self.board.board[move[0][0]][move[0][1]]
+        if isinstance(piece, King) and not piece.hasMoved and move[1][1] in [2, 6]:
+            if move[1][1] == 6:
+                rook = self.board.board[move[0][0]][7]
+                rook.move(move[0][0], 5)
+                rook.hasMoved = True
+            else:
+                rook = self.board.board[move[0][0]][0]
+                rook.move(move[0][0], 3)
+                rook.hasMoved = True
+
+        piece.move(move[1][0], move[1][1])
+
+    def wait_for_move(self):
+        enn_move = self.network.wait_for_data()
+        print('data received: ', enn_move)
+        self.your_turn = True
+        self.applying_received_move(enn_move)
         
 if __name__ == "__main__":
-    game = Game(SIZE, True)
+    game = Game(SIZE)
     game.run()

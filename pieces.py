@@ -63,11 +63,16 @@ class Pawn(Piece):
 
     def is_attacking(self):
         att_moves = []
-        test = [-1,1]
-        for x in test:
-            for y in test:
-                if self.is_on_board(self.line + x, self.column + y):
-                    att_moves.append((self.line + x, self.column + y))
+        if self.white:
+            if self.is_on_board(self.line - 1, self.column - 1):
+                att_moves.append((self.line - 1, self.column - 1))
+            if self.is_on_board(self.line - 1, self.column + 1):
+                att_moves.append((self.line - 1, self.column + 1))
+        else:
+            if self.is_on_board(self.line + 1, self.column - 1):
+                att_moves.append((self.line + 1, self.column - 1))
+            if self.is_on_board(self.line + 1, self.column + 1):
+                att_moves.append((self.line + 1, self.column + 1))
         return att_moves
 
 class Knight(Piece):
@@ -100,7 +105,9 @@ class Knight(Piece):
             moves.append((self.line + i, self.column + 2))
             moves.append((self.line + i, self.column - 2))
 
-        return [move for move in moves if self.is_on_board(move[0],move[1])]
+        poss_moves = [move for move in moves if self.is_on_board(move[0], move[1])]
+
+        return poss_moves
 
 class Bishop(Piece):
 
@@ -117,6 +124,12 @@ class Bishop(Piece):
         self.surface = pygame.transform.scale(self.surface, (80,80))
 
     def can_move_to(self):
+        
+        moves = self.is_attacking()
+
+        return [move for move in moves if self.board.board[move[0]][move[1]] is None or self.board.board[move[0]][move[1]].white != self.white]
+
+    def is_attacking(self):
         moves = []
 
         for i in [1, -1]:
@@ -127,7 +140,7 @@ class Bishop(Piece):
                 moves.append((self.line + j, self.column - j))
                 j += i
 
-            if self.is_on_board(self.line + j, self.column - j) and self.board.board[self.line + j][self.column - j].white != self.white:
+            if self.is_on_board(self.line + j, self.column - j):
                 moves.append((self.line + j, self.column - j))
             
             j = 0
@@ -136,10 +149,11 @@ class Bishop(Piece):
                 moves.append((self.line + j, self.column + j))
                 j += i
 
-            if self.is_on_board(self.line + j, self.column + j) and self.board.board[self.line + j][self.column + j].white != self.white:
+            if self.is_on_board(self.line + j, self.column + j):
                 moves.append((self.line + j, self.column + j))
 
         return [move for move in moves if move != (self.line, self.column)]
+
 
 class King(Piece):
 
@@ -157,6 +171,19 @@ class King(Piece):
         self.surface = pygame.transform.scale(self.surface, (80,80))
 
     def can_move_to(self):
+        
+        moves = self.is_attacking()
+        final_moves = [move for move in moves if self.board.board[move[0]][move[1]] is None or self.board.board[move[0]][move[1]].white != self.white]
+
+        if self.can_small_rock():
+            final_moves.append((self.line, self.column + 2))
+        
+        if self.can_big_rock():
+            final_moves.append((self.line, self.column - 2))
+
+        return final_moves
+
+    def is_attacking(self):
         moves = []
 
         for i in [-1, 1]:
@@ -169,20 +196,66 @@ class King(Piece):
             if self.is_on_board(self.line + i, self.column - i):
                 moves.append((self.line + i, self.column - i))
 
-        #Taking out occupied positions
-        moves = [move for move in moves if self.board.board[move[0]][move[1]] is None or self.board.board[move[0]][move[1]].white != self.white]
-        
-        #Taking out the moves in which he is checked
-        '''poss_moves = []
+        return moves
+
+    def can_small_rock(self):
+        #Checking if pieces block the rock or if rook is still there
+        if self.white:
+            if self.board.board[7][7] == None or self.board.board[7][6] != None or self.board.board[7][5] != None:
+                return False
+        else:
+            if self.board.board[0][7] == None or self.board.board[0][6] != None or self.board.board[0][5] != None:
+                return False
+
+        #Checking if the king or the rook have already moved
+        if self.white:
+            if self.hasMoved or self.board.board[7][7].hasMoved:
+                return False
+        else:
+            if self.hasMoved or self.board.board[0][7].hasMoved:
+                return False
+
+        #Checking if the king goes through a check position
         col = 'white' if self.white else 'black'
-        for move in moves:
+        for i in [5,6]:
             new_board = self.board.copy()
             new_board.board[self.line][self.column] = None
-            new_board.board[move[0]][move[1]] = self
+            new_board.board[self.line][i] = self
 
-            if not new_board.is_checked(col):
-                poss_moves.append(move)'''
-        return moves
+            if new_board.is_checked(col):
+                return False
+
+        return True
+
+    def can_big_rock(self):
+        #Checking if pieces block the rock or if rook is still there
+        if self.white:
+            if self.board.board[7][0] == None or self.board.board[7][1] != None or self.board.board[7][2] != None or self.board.board[7][3] != None:
+                return False
+        else:
+            if self.board.board[0][7] == None or self.board.board[0][1] != None or self.board.board[0][2] != None or self.board.board[0][3] != None:
+                return False
+
+        #Checking if the king or the rook have already moved
+        if self.white:
+            if self.hasMoved or self.board.board[7][7].hasMoved:
+                return False
+        else:
+            if self.hasMoved or self.board.board[0][7].hasMoved:
+                return False
+
+        #Checking if the king goes through a check position
+        col = 'white' if self.white else 'black'
+        for i in [2,3]:
+            new_board = self.board.copy()
+            new_board.board[self.line][self.column] = None
+            new_board.board[self.line][i] = self
+
+            if new_board.is_checked(col):
+                return False
+        
+        return True
+
 
 class Rook(Piece):
 
@@ -200,29 +273,36 @@ class Rook(Piece):
         self.surface = pygame.transform.scale(self.surface, (80,80))
 
     def can_move_to(self):
+        
+        moves = self.is_attacking()
+
+        return [move for move in moves if self.board.board[move[0]][move[1]] is None or self.board.board[move[0]][move[1]].white != self.white]
+
+    def is_attacking(self):
         moves = []
         
         for i in [1, -1]:
             
             j = 0
 
-            while j == 0 or (self.line + j <= 7 and self.line + j >= 0 and self.board.board[self.line + j][self.column] is None):
+            while j == 0 or (self.is_on_board(self.line + j, self.column) and self.board.board[self.line + j][self.column] is None):
                 moves.append((self.line + j, self.column))
                 j += i
 
-            if self.line + j <= 7 and self.line + j >= 0 and self.board.board[self.line + j][self.column].white != self.white:
+            if self.line + j <= 7 and self.line + j >= 0:
                 moves.append((self.line + j, self.column))
             
             j = 0
 
-            while j == 0 or (self.column + j <= 7 and self.column + j >= 0 and self.board.board[self.line][self.column + j] is None ):
+            while j == 0 or (self.is_on_board(self.line, self.column + j) and self.board.board[self.line][self.column + j] is None):
                 moves.append((self.line, self.column + j))
                 j += i
 
-            if self.column + j <= 7 and self.column + j >= 0 and self.board.board[self.line][self.column + j].white != self.white:
+            if self.column + j <= 7 and self.column + j >= 0:
                 moves.append((self.line, self.column + j))
 
         return [move for move in moves if move != (self.line, self.column)]
+
 
 class Queen(Piece):
 
@@ -239,6 +319,12 @@ class Queen(Piece):
         self.surface = pygame.transform.scale(self.surface, (80,80))
 
     def can_move_to(self):
+        
+        moves = self.is_attacking()
+
+        return [move for move in moves if self.board.board[move[0]][move[1]] is None or self.board.board[move[0]][move[1]].white != self.white]
+
+    def is_attacking(self):
         moves = []
         
         #Rook moves
@@ -250,7 +336,7 @@ class Queen(Piece):
                 moves.append((self.line + j, self.column))
                 j += i
 
-            if self.line + j <= 7 and self.line + j >= 0 and self.board.board[self.line + j][self.column].white != self.white:
+            if self.line + j <= 7 and self.line + j >= 0:
                 moves.append((self.line + j, self.column))
             
             j = 0
@@ -259,7 +345,7 @@ class Queen(Piece):
                 moves.append((self.line, self.column + j))
                 j += i
 
-            if self.column + j <= 7 and self.column + j >= 0 and self.board.board[self.line][self.column + j].white != self.white:
+            if self.column + j <= 7 and self.column + j >= 0:
                 moves.append((self.line, self.column + j))
 
         #Bishop moves
@@ -271,7 +357,7 @@ class Queen(Piece):
                 moves.append((self.line + j, self.column - j))
                 j += i
 
-            if self.is_on_board(self.line + j, self.column - j) and self.board.board[self.line + j][self.column - j].white != self.white:
+            if self.is_on_board(self.line + j, self.column - j):
                 moves.append((self.line + j, self.column - j))
             
             j = 0
@@ -280,7 +366,7 @@ class Queen(Piece):
                 moves.append((self.line + j, self.column + j))
                 j += i
 
-            if self.is_on_board(self.line + j, self.column + j) and self.board.board[self.line + j][self.column + j].white != self.white:
+            if self.is_on_board(self.line + j, self.column + j):
                 moves.append((self.line + j, self.column + j))
 
         return [move for move in moves if move != (self.line, self.column)]

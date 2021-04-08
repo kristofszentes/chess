@@ -67,6 +67,14 @@ class Board():
                 if piece!= None and piece.white == col and isinstance(piece,King):
                     return (i,j)
 
+    def check_pawn_to_queen(self):
+        for i in [0,7]:
+            for j in range(8):
+                piece = self.board[i][j]
+                if piece != None and isinstance(piece,Pawn):
+                    new_queen = Queen((i,j), piece.white, self)
+                    self.board[i][j] = new_queen
+
     #tells if a player is checked, color can be 'white' or 'black'
     def is_checked(self, color):
         col = True if color == 'white' else False
@@ -75,12 +83,12 @@ class Board():
             for j in range(8):
                 piece = self.board[i][j]
                 if piece != None and piece.white != col:
-                    print(type(piece).__name__, piece.can_move_to())
-                    if k_coord in piece.can_move_to():
-                        return True
-                    elif isinstance(piece, Pawn) and k_coord in piece.is_attacking():
+                    if k_coord in piece.is_attacking():
                         return True
         return False
+
+    def is_mated(self, color):
+        col = True if color == 'white' else False
 
     def copy(self):
         new_board = Board()
