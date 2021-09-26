@@ -67,7 +67,7 @@ class Game():
                 pygame.draw.rect(self.screen, RED, (55 + 80*square[1], 55 + 80*square[0], 30, 30))
         else:
             for square in self.marked:
-                pygame.draw.rect(self.screen, RED, (590 - 80*square[1], 590 - 80*square[0], 30, 30))
+                pygame.draw.rect(self.screen, RED, (615 - 80*square[1], 615 - 80*square[0], 30, 30))
         
         pygame.display.update()
 
